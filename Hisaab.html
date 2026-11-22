@@ -1,0 +1,353 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hisaab — Expense Tracker</title>
+<style>
+:root{--paper:#f7f5ee;--ink:#242d29;--muted:#57635c;--teal:#245b4f;--line:#dedfd4;--white:#fffef9;--orange:#97561d;--red:#993e33}
+*{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font:15px/1.5 system-ui,sans-serif}
+header{border-bottom:1px solid var(--line);background:var(--white)}.wrap{width:min(1120px,calc(100% - 40px));margin:auto}
+.top,.heading,.panel-head,.actions{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}.top{min-height:74px;padding-block:10px}
+.brand{font-family:Georgia,serif;font-size:29px;font-weight:bold;letter-spacing:-1px}.brand span{color:var(--teal)}
+nav,.filters,.row-actions{display:flex;gap:6px;flex-wrap:wrap}nav{background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:4px}
+button,input,select{font:inherit}button,input,select{border:1px solid var(--line);border-radius:6px;background:var(--white);color:var(--ink);padding:8px 11px}button{cursor:pointer}button:hover{background:#eeefe6}nav button{border-color:transparent;background:transparent}nav button[aria-pressed=true]{background:#dfebe3;color:#17493c;font-weight:650}
+.primary{background:var(--teal);color:white;border-color:var(--teal);font-weight:650}.primary:hover{background:#19493e}
+main{padding:34px 0 55px}h1,h2,p{margin:0}h1{font:700 clamp(30px,5vw,43px)/1.15 Georgia,serif;letter-spacing:-1px}h2{font-size:16px}.hint{color:var(--muted);margin-top:7px}
+.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:24px 0}.card,.panel{background:var(--white);border:1px solid var(--line);border-radius:10px}.card{padding:17px 19px}.card:first-child{background:#e7eee5}.card small{color:var(--muted);display:block}.card strong{display:block;font-size:clamp(21px,4vw,31px);font-weight:640;margin-top:3px;overflow-wrap:anywhere}.card button{margin-top:7px;padding:4px 8px;font-size:13px}
+.content{display:grid;grid-template-columns:minmax(0,1fr) minmax(230px,0.36fr);gap:15px;align-items:start}.panel-head,.breakdown{padding:16px}.panel-head{border-bottom:1px solid var(--line)}.filters select{max-width:158px}
+.scroll{overflow-x:auto}table{width:100%;border-collapse:collapse;min-width:620px;text-align:left}th,td{padding:11px 12px;border-bottom:1px solid #edede4}th{font-size:12px;color:var(--muted);font-weight:650}tr:last-child td{border-bottom:0}td:first-child{overflow-wrap:anywhere;max-width:200px}td small{display:block;color:var(--muted)}.empty{padding:25px 15px;color:var(--muted)}.row-actions button{padding:4px 7px;font-size:13px}.pending{color:var(--orange)}.overdue{color:var(--red);font-weight:650}.paid{color:var(--teal)}
+.category{margin-top:14px}.category p{display:flex;justify-content:space-between;gap:8px;font-size:13px}progress{width:100%;height:6px;appearance:none;border:0;background:#e8e9df;border-radius:8px;overflow:hidden}progress::-webkit-progress-bar{background:#e8e9df}progress::-webkit-progress-value{background:#648d77}progress::-moz-progress-bar{background:#648d77}
+dialog{margin:auto;width:min(445px,calc(100% - 24px));max-height:calc(100% - 24px);border:1px solid var(--line);border-radius:12px;background:var(--white);color:var(--ink);padding:22px}dialog::backdrop{background:#222b2780}form{display:grid;gap:12px;margin-top:14px}label{display:grid;gap:4px;font-weight:550}label[hidden], [hidden]{display:none!important}.status{color:var(--red);font-size:13px}.actions{justify-content:flex-end}
+@media(max-width:890px){.content{grid-template-columns:1fr}}
+@media(max-width:520px){.wrap{width:calc(100% - 24px)}main{padding-top:24px}.cards{grid-template-columns:1fr;gap:8px}.card{padding:12px}.top nav{width:100%}.top nav button{flex:1;padding-inline:4px}}
+</style>
+</head>
+<body>
+<header><div class="wrap top">
+  <div class="brand">Hisaab<span>.</span></div>
+  <nav aria-label="Tracker mode">
+    <button type="button" data-mode="student">Student</button>
+    <button type="button" data-mode="individual">Individual</button>
+    <button type="button" data-mode="business">Business</button>
+  </nav>
+</div></header>
+<main class="wrap">
+  <section class="heading">
+    <div><h1 id="mode-title"></h1><p id="mode-description" class="hint"></p></div>
+    <div class="filters"><input id="month" type="month" aria-label="Expense month"><button id="add" class="primary" type="button">+ Add entry</button></div>
+  </section>
+  <p id="notice" class="status" role="status"></p>
+  <section id="summary" class="cards" aria-label="Summary"></section>
+  <div class="content">
+    <section class="panel" aria-labelledby="ledger-title">
+      <div class="panel-head"><h2 id="ledger-title">Entries</h2><div class="filters">
+        <select id="type-filter" aria-label="Entry type"></select>
+        <select id="category-filter" aria-label="Expense category"></select>
+      </div></div>
+      <div class="scroll"><table>
+        <thead><tr><th scope="col">Name / details</th><th scope="col">Date / due</th><th scope="col">Amount</th><th scope="col">Status</th><th scope="col">Actions</th></tr></thead>
+        <tbody id="entries"></tbody>
+      </table></div>
+    </section>
+    <aside class="panel breakdown"><h2>Spending by category</h2><div id="breakdown"></div></aside>
+  </div>
+</main>
+<dialog id="entry-dialog" aria-labelledby="entry-heading">
+  <h2 id="entry-heading">Add entry</h2>
+  <form id="entry-form">
+    <label id="kind-field">Entry type<select id="kind"></select></label>
+    <label><span id="name-label">Expense name</span><input id="name" maxlength="90" required></label>
+    <label>Amount (₹)<input id="amount" type="number" min="0.01" max="999999999" step="0.01" required></label>
+    <label id="category-field">Category<select id="category"></select></label>
+    <label><span id="date-label">Expense date</span><input id="date" type="date" required></label>
+    <label id="settled-field" hidden><span id="settled-label"></span><input id="settled" type="number" min="0" step="0.01" value="0"></label>
+    <label id="note-field" hidden>Reason / reference (optional)<input id="note" maxlength="100"></label>
+    <div class="actions"><button type="button" data-close="entry-dialog">Cancel</button><button class="primary">Save entry</button></div>
+  </form>
+</dialog>
+<dialog id="budget-dialog" aria-labelledby="budget-heading">
+  <h2 id="budget-heading">Monthly budget</h2>
+  <form id="budget-form">
+    <label>Budget (₹)<input id="budget" type="number" min="0" max="999999999" step="0.01" required></label>
+    <div class="actions"><button type="button" data-close="budget-dialog">Cancel</button><button class="primary">Save budget</button></div>
+  </form>
+</dialog>
+<dialog id="delete-dialog" aria-labelledby="delete-heading">
+  <h2 id="delete-heading">Delete entry?</h2>
+  <form id="delete-form"><p id="delete-detail"></p><div class="actions"><button type="button" data-close="delete-dialog" autofocus>Cancel</button><button class="primary">Delete entry</button></div></form>
+</dialog>
+<script>
+const modes = {
+  student: { title: "Student expenses", description: "Track campus spending against your monthly budget.", categories: ["Canteen", "Travel", "Books", "Recharge", "Hostel", "Other"] },
+  individual: { title: "Personal accounts", description: "Track daily expenses and money to receive or pay.", categories: ["Food", "Travel", "Shopping", "Bills", "Health", "Other"] },
+  business: { title: "Business ledger", description: "Track operating expenses, customer dues and supplier payments.", categories: ["Inventory", "Rent", "Utilities", "Transport", "Salaries", "Other"] }
+};
+const kinds = { expense: "Expense", receivable: "To receive", payable: "To pay" };
+const $ = (id) => document.getElementById(id);
+const storageKey = "hisaab-expense-tracker-v1";
+let data = { entries: [], budgets: {} };
+let mode = "student";
+let editingId = null;
+let deletingId = null;
+
+try {
+  const saved = JSON.parse(localStorage.getItem(storageKey));
+  if (saved && Array.isArray(saved.entries) && saved.budgets) data = saved;
+} catch {
+  $("notice").textContent = "Saved data could not be loaded.";
+}
+
+const moneyFormat = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", minimumFractionDigits: 0, maximumFractionDigits: 2 });
+const dateFormat = new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", year: "numeric" });
+const money = (paise) => moneyFormat.format(paise / 100);
+const paise = (input) => Math.round(Number(input.value) * 100);
+const sum = (entries, getValue) => entries.reduce((total, entry) => total + getValue(entry), 0);
+const outstanding = (entry) => entry.amount - entry.settled;
+
+function today() {
+  const date = new Date();
+  return [date.getFullYear(), date.getMonth() + 1, date.getDate()].map((part) => String(part).padStart(2, "0")).join("-");
+}
+
+function save() {
+  try {
+    localStorage.setItem(storageKey, JSON.stringify(data));
+    $("notice").textContent = "";
+  } catch {
+    $("notice").textContent = "Browser storage is unavailable. Changes may be lost when you close this page.";
+  }
+}
+
+function node(tag, content, className) {
+  const element = document.createElement(tag);
+  element.textContent = content;
+  if (className) element.className = className;
+  return element;
+}
+
+function options(select, pairs) {
+  select.replaceChildren(...pairs.map(([value, label]) => new Option(label, value)));
+}
+
+function card(label, value, action) {
+  const element = node("div", "", "card");
+  element.append(node("small", label), node("strong", value));
+  if (action) {
+    const button = node("button", "Set budget");
+    button.type = "button";
+    button.addEventListener("click", action);
+    element.append(button);
+  }
+  return element;
+}
+
+function render() {
+  const month = $("month").value;
+  const own = data.entries.filter((entry) => entry.mode === mode);
+  const expenses = own.filter((entry) => entry.kind === "expense" && entry.date.startsWith(month));
+  const total = sum(expenses, (entry) => entry.amount);
+  const expenseCard = card("Expenses this month", money(total));
+  if (mode === "student") {
+    const budget = data.budgets[month];
+    const remaining = budget === undefined ? undefined : budget - total;
+    $("summary").replaceChildren(
+      card("Monthly budget", budget === undefined ? "—" : money(budget), openBudget),
+      expenseCard,
+      card(remaining < 0 ? "Over budget" : "Budget remaining", remaining === undefined ? "—" : money(Math.abs(remaining)))
+    );
+  } else {
+    const due = (kind) => sum(own.filter((entry) => entry.kind === kind), outstanding);
+    $("summary").replaceChildren(
+      expenseCard,
+      card(mode === "business" ? "Customer dues · all dates" : "To receive · all dates", money(due("receivable"))),
+      card(mode === "business" ? "Supplier payments · all dates" : "To pay · all dates", money(due("payable")))
+    );
+  }
+
+  const category = $("category-filter").value;
+  const kind = $("type-filter").value;
+  const ledger = [...expenses, ...own.filter((entry) => entry.kind !== "expense")]
+    .filter((entry) => (!kind || entry.kind === kind) && (!category || entry.category === category))
+    .sort((a, b) => b.date.localeCompare(a.date));
+  $("entries").replaceChildren();
+  if (ledger.length) $("entries").append(...ledger.map(entryRow));
+  else {
+    const row = node("tr", "");
+    const cell = node("td", "No entries to show.", "empty");
+    cell.colSpan = 5;
+    row.append(cell);
+    $("entries").append(row);
+  }
+
+  $("breakdown").replaceChildren();
+  if (!total) $("breakdown").append(node("p", "No expenses for this month.", "hint"));
+  for (const label of modes[mode].categories) {
+    const spent = sum(expenses.filter((entry) => entry.category === label), (entry) => entry.amount);
+    if (!spent) continue;
+    const item = node("div", "", "category");
+    const line = node("p", "");
+    line.append(node("span", label), node("strong", money(spent)));
+    const bar = node("progress", "");
+    bar.max = total;
+    bar.value = spent;
+    bar.setAttribute("aria-label", label + " share of spending");
+    item.append(line, bar);
+    $("breakdown").append(item);
+  }
+}
+
+function entryRow(entry) {
+  const row = node("tr", "");
+  const expense = entry.kind === "expense";
+  const name = node("td", entry.name);
+  name.append(node("small", expense ? entry.category : kinds[entry.kind]));
+  if (entry.note) name.append(node("small", entry.note));
+  const date = node("td", dateFormat.format(new Date(entry.date + "T00:00:00")));
+  const amount = node("td", money(entry.amount));
+  const status = node("td", "Recorded");
+  const balance = outstanding(entry);
+  if (!expense) {
+    const overdue = balance > 0 && entry.date < today();
+    status.textContent = balance === 0 ? "Paid" : entry.settled ? "Partial" : "Pending";
+    if (overdue) status.textContent += " · overdue";
+    status.className = balance === 0 ? "paid" : overdue ? "overdue" : "pending";
+    if (balance > 0) amount.append(node("small", money(balance) + " left"));
+  }
+  const actionCell = node("td", "");
+  const actions = node("div", "", "row-actions");
+  const edit = node("button", "Edit");
+  edit.addEventListener("click", () => openEntry(entry));
+  const remove = node("button", "Delete");
+  remove.addEventListener("click", () => {
+    deletingId = entry.id;
+    $("delete-detail").textContent = entry.name + " · " + money(entry.amount);
+    $("delete-dialog").showModal();
+  });
+  edit.setAttribute("aria-label", "Edit " + entry.name);
+  remove.setAttribute("aria-label", "Delete " + entry.name);
+  actions.append(edit, remove);
+  actionCell.append(actions);
+  row.append(name, date, amount, status, actionCell);
+  return row;
+}
+
+function setMode(next) {
+  mode = next;
+  const config = modes[mode];
+  $("mode-title").textContent = config.title;
+  $("mode-description").textContent = config.description;
+  const buttons = document.querySelectorAll("[data-mode]");
+  for (const button of buttons) button.setAttribute("aria-pressed", String(button.dataset.mode === mode));
+  const availableKinds = mode === "student" ? [["expense", kinds.expense]] : Object.entries(kinds);
+  const categories = config.categories.map((label) => [label, label]);
+  options($("kind"), availableKinds);
+  options($("type-filter"), [["", "All types"], ...availableKinds]);
+  options($("category"), categories);
+  options($("category-filter"), [["", "All categories"], ...categories]);
+  $("type-filter").hidden = mode === "student";
+  $("kind-field").hidden = mode === "student";
+  render();
+}
+
+function toggleEntryFields() {
+  const kind = $("kind").value;
+  const expense = kind === "expense";
+  const business = mode === "business";
+  $("name-label").textContent = expense ? "Expense name" : business ? (kind === "receivable" ? "Customer name" : "Supplier name") : "Person's name";
+  $("date-label").textContent = expense ? "Expense date" : "Due date";
+  $("settled-label").textContent = kind === "receivable" ? "Amount already received (₹)" : "Amount already paid (₹)";
+  $("category-field").hidden = !expense;
+  $("settled-field").hidden = expense;
+  $("note-field").hidden = expense;
+  $("settled").disabled = expense;
+  $("settled").setCustomValidity("");
+}
+
+function openEntry(entry) {
+  editingId = entry?.id ?? null;
+  $("entry-form").reset();
+  $("entry-heading").textContent = entry ? "Edit entry" : "Add entry";
+  $("kind").value = entry?.kind ?? "expense";
+  $("name").value = entry?.name ?? "";
+  $("name").setCustomValidity("");
+  $("amount").value = entry ? entry.amount / 100 : "";
+  $("date").value = entry?.date ?? ($("month").value === today().slice(0, 7) ? today() : $("month").value + "-01");
+  if (entry?.category) $("category").value = entry.category;
+  $("settled").value = entry ? entry.settled / 100 : 0;
+  $("note").value = entry?.note ?? "";
+  toggleEntryFields();
+  $("entry-dialog").showModal();
+}
+
+function openBudget() {
+  const budget = data.budgets[$("month").value];
+  $("budget").value = budget === undefined ? "" : budget / 100;
+  $("budget-dialog").showModal();
+}
+
+$("entry-form").addEventListener("submit", (event) => {
+  event.preventDefault();
+  const name = $("name").value.trim();
+  $("name").setCustomValidity(name ? "" : "Enter a name.");
+  if (!$("name").reportValidity()) return;
+  const kind = $("kind").value;
+  const amount = paise($("amount"));
+  const settled = kind === "expense" ? 0 : paise($("settled"));
+  $("settled").setCustomValidity(settled > amount ? "This cannot exceed the total amount." : "");
+  if (!$("settled").reportValidity()) return;
+  const entry = {
+    id: editingId ?? (globalThis.crypto?.randomUUID?.() ?? Date.now() + "-" + Math.random()),
+    mode, kind, name, amount, settled, date: $("date").value,
+    category: kind === "expense" ? $("category").value : "",
+    note: kind === "expense" ? "" : $("note").value.trim()
+  };
+  if (editingId) data.entries = data.entries.map((item) => item.id === editingId ? entry : item);
+  else data.entries.push(entry);
+  if (kind === "expense") $("month").value = entry.date.slice(0, 7);
+  $("type-filter").value = "";
+  $("category-filter").value = "";
+  save();
+  $("entry-dialog").close();
+  render();
+});
+
+$("budget-form").addEventListener("submit", (event) => {
+  event.preventDefault();
+  data.budgets[$("month").value] = paise($("budget"));
+  save();
+  $("budget-dialog").close();
+  render();
+});
+
+$("delete-form").addEventListener("submit", (event) => {
+  event.preventDefault();
+  data.entries = data.entries.filter((entry) => entry.id !== deletingId);
+  save();
+  $("delete-dialog").close();
+  render();
+});
+
+$("name").addEventListener("input", () => $("name").setCustomValidity(""));
+for (const id of ["amount", "settled"]) $(id).addEventListener("input", () => $("settled").setCustomValidity(""));
+$("kind").addEventListener("change", toggleEntryFields);
+$("add").addEventListener("click", () => openEntry());
+$("type-filter").addEventListener("change", () => {
+  if (["payable", "receivable"].includes($("type-filter").value)) $("category-filter").value = "";
+  render();
+});
+$("category-filter").addEventListener("change", () => {
+  if ($("category-filter").value) $("type-filter").value = "expense";
+  render();
+});
+$("month").addEventListener("change", () => {
+  if (!$("month").value) $("month").value = today().slice(0, 7);
+  render();
+});
+for (const button of document.querySelectorAll("[data-close]")) button.addEventListener("click", () => $(button.dataset.close).close());
+for (const button of document.querySelectorAll("[data-mode]")) button.addEventListener("click", () => setMode(button.dataset.mode));
+$("month").value = today().slice(0, 7);
+setMode("student");
+</script>
+</body>
+</html>
